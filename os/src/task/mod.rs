@@ -15,9 +15,10 @@ mod switch;
 mod task;
 
 
-use crate::config::{MAX_APP_NUM,MAX_SYSCALL_ID};
+//use crate::config::MAX_SYSCALL_ID;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
+use crate::config::{MAX_APP_NUM,MAX_SYSCALL_ID};
 use lazy_static::*;
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
@@ -55,7 +56,7 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
-            syscall_count:[0;MAX_SYSCALL_ID]
+            syscall_count: [0;MAX_SYSCALL_ID]
         }; MAX_APP_NUM];
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -144,7 +145,7 @@ impl TaskManager {
         inner.tasks[current].syscall_count[syscall_id]+=1;
     }
 
-    fn get_current_syscall_count(&self,syscall_id:usize)->usize{
+    fn get_current_syscall_count(&self,syscall_id:usize)->u8{
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
         inner.tasks[current].syscall_count[syscall_id]
@@ -190,6 +191,6 @@ pub fn increment_current_syscall_count(syscall_id:usize){
 }
 
 /// get current tcb syscall count
-pub fn get_current_syscall_count(syscall_id:usize)->usize{
+pub fn get_current_syscall_count(syscall_id:usize)->u8{
     TASK_MANAGER.get_current_syscall_count(syscall_id)
 }
