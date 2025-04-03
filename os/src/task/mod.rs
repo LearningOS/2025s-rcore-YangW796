@@ -14,7 +14,6 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
-
 use crate::loader::{get_app_data, get_num_app};
 use crate::mm::{MapPermission, PageTable, PhysAddr, VirtAddr, VirtPageNum};
 use crate::sync::UPSafeCell;
@@ -156,18 +155,17 @@ impl TaskManager {
         }
     }
 
-    fn increment_current_syscall_count(&self,syscall_id:usize){
+    fn increment_current_syscall_count(&self, syscall_id: usize) {
         let mut inner = self.inner.exclusive_access();
         let cur = inner.current_task;
-        inner.tasks[cur].syscall_count[syscall_id]+=1;
+        inner.tasks[cur].syscall_count[syscall_id] += 1;
     }
 
-    fn get_current_syscall_count(&self,syscall_id:usize)->u8{
+    fn get_current_syscall_count(&self, syscall_id: usize) -> u8 {
         let inner = self.inner.exclusive_access();
         let cur = inner.current_task;
         inner.tasks[cur].syscall_count[syscall_id]
     }
-
 }
 
 /// Run the first task in task list.
@@ -219,12 +217,12 @@ pub fn change_program_brk(size: i32) -> Option<usize> {
 }
 
 /// increment current tcb syscall count
-pub fn increment_current_syscall_count(syscall_id:usize){
+pub fn increment_current_syscall_count(syscall_id: usize) {
     TASK_MANAGER.increment_current_syscall_count(syscall_id);
 }
 
 /// get current tcb syscall count
-pub fn get_current_syscall_count(syscall_id:usize)->u8{
+pub fn get_current_syscall_count(syscall_id: usize) -> u8 {
     TASK_MANAGER.get_current_syscall_count(syscall_id)
 }
 
@@ -232,30 +230,34 @@ pub fn get_current_syscall_count(syscall_id:usize)->u8{
 pub fn create_new_map_area(start_va: VirtAddr, end_va: VirtAddr, prot: MapPermission) {
     let mut inner = TASK_MANAGER.inner.exclusive_access();
     let current = inner.current_task;
-    inner.tasks[current].memory_set.insert_framed_area(start_va, end_va, prot);
+    inner.tasks[current]
+        .memory_set
+        .insert_framed_area(start_va, end_va, prot);
 }
 ///
-pub fn delete_map_area(start_vpn: VirtPageNum, end_vpn:VirtPageNum)->isize{
+pub fn unmap_vpns(start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> isize {
     let mut inner = TASK_MANAGER.inner.exclusive_access();
     let cur = inner.current_task;
-    for vpn in (start_vpn.0)..(end_vpn.0){
-        if let Some(pte)=inner.tasks[cur].memory_set.translate(vpn.into()){
-               if !pte.is_valid() {return -1;}
-               inner.tasks[cur].memory_set.page_table.unmap(vpn.into());
-
-        }else {return -1;}
+    for vpn in (start_vpn.0)..(end_vpn.0) {
+        if let Some(pte) = inner.tasks[cur].memory_set.translate(vpn.into()) {
+            if !pte.is_valid() {
+                return -1;
+            }
+            inner.tasks[cur].memory_set.page_table.unmap(vpn.into());
+        } else {
+            return -1;
+        }
     }
     return 0;
-
 }
 
 ///check_vpn is used
-pub fn check_vpn_used(start_vpn:VirtPageNum,end_vpn:VirtPageNum)->bool{
+pub fn map_vpns_to_ppns(start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool {
     let inner = TASK_MANAGER.inner.exclusive_access();
     let current = inner.current_task;
-    for vpn in (start_vpn.0)..(end_vpn.0){
-        if let Some(pte)=inner.tasks[current].memory_set.translate(vpn.into()){
-            if pte.is_valid(){
+    for vpn in (start_vpn.0)..(end_vpn.0) {
+        if let Some(pte) = inner.tasks[current].memory_set.translate(vpn.into()) {
+            if pte.is_valid() {
                 return true;
             }
         }
@@ -263,17 +265,15 @@ pub fn check_vpn_used(start_vpn:VirtPageNum,end_vpn:VirtPageNum)->bool{
     return false;
 }
 /// rw
-pub fn check_vpn_rw(vpn:VirtPageNum,rw:usize)->bool{
-
+pub fn check_vpn_rw(vpn: VirtPageNum, rw: usize) -> bool {
     let inner = TASK_MANAGER.inner.exclusive_access();
     let current = inner.current_task;
-    let pte=inner.tasks[current].memory_set.translate(vpn);
+    let pte = inner.tasks[current].memory_set.translate(vpn);
     println!("pte:{}", pte.is_some());
-    if pte.is_some(){
-        if rw==0{
+    if pte.is_some() {
+        if rw == 0 {
             return pte.unwrap().readable();
-        }
-        else if rw==1{
+        } else if rw == 1 {
             return pte.unwrap().writable();
         }
     }
@@ -281,13 +281,12 @@ pub fn check_vpn_rw(vpn:VirtPageNum,rw:usize)->bool{
 }
 
 /// vaddr_to_paddr
-pub fn vaddr_to_paddr(token: usize,vid:usize)->PhysAddr{
+pub fn vaddr_to_paddr(token: usize, vid: usize) -> PhysAddr {
     let page_table = PageTable::from_token(token);
-    let va:VirtAddr=vid.into();
-    let vpn:VirtPageNum=va.floor();
-    let offset=va.page_offset();
+    let va: VirtAddr = vid.into();
+    let vpn: VirtPageNum = va.floor();
+    let offset = va.page_offset();
     let ppn = page_table.translate(vpn).unwrap().ppn();
-    let pa=ppn.0<<12|offset;
+    let pa = ppn.0 << 12 | offset;
     pa.into()
-    
 }
