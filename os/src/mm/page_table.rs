@@ -1,4 +1,6 @@
 //! Implementation of [`PageTableEntry`] and [`PageTable`].
+use crate::task::current_task;
+
 use super::{frame_alloc, FrameTracker, PhysAddr, PhysPageNum, StepByOne, VirtAddr, VirtPageNum};
 use alloc::string::String;
 use alloc::vec;
@@ -212,4 +214,24 @@ pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
         .translate_va(VirtAddr::from(va))
         .unwrap()
         .get_mut()
+}
+
+///
+pub fn map_vpns_to_ppns(start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool {
+    let task = current_task().unwrap();
+    let inner =task.inner_exclusive_access();
+    for vpn in (start_vpn.0)..(end_vpn.0) {
+        if let Some(pte) = inner.memory_set.translate(vpn.into()) {
+            if pte.is_valid() {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+///
+pub fn unmap_vpns(start_vpn: VirtPageNum) {
+    let task = current_task().unwrap();
+    let mut inner =task.inner_exclusive_access();
+    inner.memory_set.remove_area_with_start_vpn(start_vpn);
 }

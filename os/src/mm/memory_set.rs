@@ -5,6 +5,7 @@ use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
 use crate::config::{MEMORY_END, PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT_BASE, USER_STACK_SIZE};
 use crate::sync::UPSafeCell;
+use crate::task::current_task;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -446,4 +447,10 @@ pub fn remap_test() {
         .unwrap()
         .executable(),);
     println!("remap_test passed!");
+}
+///
+pub fn create_new_map_area(start_va: VirtAddr, end_va: VirtAddr, prot: MapPermission) {
+    let task = current_task().unwrap();
+    let mut inner =task.inner_exclusive_access();
+    inner.memory_set.insert_framed_area(start_va, end_va, prot);
 }
