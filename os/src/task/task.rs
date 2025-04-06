@@ -102,7 +102,7 @@ impl TaskControlBlockInner {
     }
 }
 
-pub const BIG_STRIDE:usize=100000000000;
+pub const BIG_STRIDE:usize=1000000;
 impl TaskControlBlock {
     /// Create a new process
     ///
