@@ -145,6 +145,7 @@ pub fn sys_unlinkat(name: *const u8) -> isize {
     let token = current_user_token();
     let name = translated_str(token, name);
     if let Some(inode) = ROOT_INODE.find(name.as_str()) {
+        
         if ROOT_INODE.get_link_num(inode.block_id, inode.block_offset) == 1 {
             // clear data if only one link exists
             inode.clear();
