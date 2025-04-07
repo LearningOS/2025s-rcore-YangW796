@@ -167,7 +167,7 @@ pub fn sys_semaphore_down(sem_id: usize) -> isize {
     );
     let process = current_process();
     let process_inner = process.inner_exclusive_access();
-    if process_inner.deadlock_check==1 &&process_inner.check_dead_sem(sem_id){return -0xDEAD;}
+    if process_inner.check_dead_sem(sem_id){return -0xDEAD;}
     let sem = Arc::clone(process_inner.semaphore_list[sem_id].as_ref().unwrap());
     drop(process_inner);
     sem.down();

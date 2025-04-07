@@ -82,6 +82,34 @@ impl Semaphore {
         if inner.count<0{0}else{inner.count as i32}
     }
 
+    ///
+    pub fn allocated(&self)->Option<Vec<usize>>{
+        let inner = self.inner.exclusive_access();
+        if inner.allocated_queue.len() > 0 {
+            return Some(inner.allocated_queue.clone());
+        } else {
+            return None;
+        }
+
+    }
+
+    ///
+    pub fn need(&self)->Option<Vec<usize>>{
+        let inner = self.inner.exclusive_access();
+        let n = inner.wait_queue.len();
+        if n == 0 {
+            return None;
+        } else {
+            let mut res = Vec::new();
+            for i in 0..n {
+                let task = &inner.wait_queue[i];
+                res.push(task.get_tid());
+            }
+            return Some(res);
+        }
+
+    }
+
 
 
 

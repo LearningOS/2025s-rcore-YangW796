@@ -153,14 +153,17 @@ impl ProcessControlBlockInner {
         for i in 0..m{
             if let Some(sem_i)=&self.semaphore_list[i]{
                 available[i]=sem_i.count();
-                
-                for tid in sem_i.inner.exclusive_access().allocated_queue.iter(){
-                    allocation[*tid][i]+=1;
+                if let Some(allocation_mat) = sem_i.allocated() {
+                    for j in 0..allocation_mat.len() {
+                        allocation[allocation_mat[j]][i] += 1;
+                    }
                 }
-
-                for task in sem_i.inner.exclusive_access().wait_queue.iter(){
-                    need[task.get_tid()][i]+=1;
-                }     
+                if let Some(need_mat) = sem_i.need() {
+                    for j in 0..need_mat.len() {
+                        need[need_mat[j]][i] += 1;
+                    }
+                }
+                
             }
         }
         need[current_task().unwrap().get_tid()][sem_id] += 1;
