@@ -4,6 +4,7 @@ use super::UPSafeCell;
 use crate::task::TaskControlBlock;
 use crate::task::{block_current_and_run_next, suspend_current_and_run_next};
 use crate::task::{current_task, wakeup_task};
+use alloc::vec::Vec;
 use alloc::{collections::VecDeque, sync::Arc};
 
 /// Mutex trait
@@ -12,11 +13,18 @@ pub trait Mutex: Sync + Send {
     fn lock(&self);
     /// Unlock the mutex
     fn unlock(&self);
+    ///
+    fn count(&self)->isize;
+    ///
+    fn allocated(&self)->isize ;
+    ///
+    fn need(&self) -> Option<Vec<usize>>;
 }
 
 /// Spinlock Mutex struct
 pub struct MutexSpin {
     locked: UPSafeCell<bool>,
+    allocate_tid: UPSafeCell<usize>,
 }
 
 impl MutexSpin {
@@ -24,6 +32,7 @@ impl MutexSpin {
     pub fn new() -> Self {
         Self {
             locked: unsafe { UPSafeCell::new(false) },
+            allocate_tid: unsafe { UPSafeCell::new(0) }
         }
     }
 }
@@ -40,6 +49,8 @@ impl Mutex for MutexSpin {
                 continue;
             } else {
                 *locked = true;
+                let mut allocate_tid = self.allocate_tid.exclusive_access();
+                *allocate_tid =current_task().unwrap().get_tid();
                 return;
             }
         }
@@ -50,6 +61,29 @@ impl Mutex for MutexSpin {
         let mut locked = self.locked.exclusive_access();
         *locked = false;
     }
+
+    fn count(&self)->isize {
+        let locked = self.locked.exclusive_access();
+        if *locked == false {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    fn allocated(&self)->isize {
+        let locked = self.locked.exclusive_access();
+        if *locked == false {
+            return -1;
+        } else {
+            return *self.allocate_tid.exclusive_access() as isize;
+        }
+    }
+
+    fn need(&self) -> Option<Vec<usize>> {
+        return None;
+    }
+
 }
 
 /// Blocking Mutex struct
@@ -60,6 +94,7 @@ pub struct MutexBlocking {
 pub struct MutexBlockingInner {
     locked: bool,
     wait_queue: VecDeque<Arc<TaskControlBlock>>,
+    allocate_tid:usize
 }
 
 impl MutexBlocking {
@@ -71,6 +106,7 @@ impl MutexBlocking {
                 UPSafeCell::new(MutexBlockingInner {
                     locked: false,
                     wait_queue: VecDeque::new(),
+                    allocate_tid: 0 as usize
                 })
             },
         }
@@ -87,7 +123,9 @@ impl Mutex for MutexBlocking {
             drop(mutex_inner);
             block_current_and_run_next();
         } else {
+            mutex_inner.allocate_tid=current_task().unwrap().get_tid(); 
             mutex_inner.locked = true;
+            
         }
     }
 
@@ -102,4 +140,45 @@ impl Mutex for MutexBlocking {
             mutex_inner.locked = false;
         }
     }
+
+    fn count(&self) -> isize {
+        let mutex_inner = self.inner.exclusive_access();
+        if mutex_inner.locked {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+
+    fn allocated(&self)->isize {
+        let locked = self.inner.exclusive_access().locked;
+        if !locked {
+            return -1;
+        } else {
+            return self.inner.exclusive_access().allocate_tid as isize;
+        }
+    }
+
+    fn need(&self) -> Option<Vec<usize>> {
+        let mutex_inner = self.inner.exclusive_access();
+        if mutex_inner.locked {
+            let n = mutex_inner.wait_queue.len();
+            if n == 0 {
+                return None;
+            } else {
+                let mut res = Vec::new();
+                for i in 0..n {
+                    let task = &mutex_inner.wait_queue[i];
+                    res.push(task.get_tid());
+                }
+                return Some(res);
+            }
+        } else {
+            return None;
+        }
+    }
+
+
+
+
 }

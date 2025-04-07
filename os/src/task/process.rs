@@ -2,7 +2,7 @@
 
 use super::id::RecycleAllocator;
 use super::manager::insert_into_pid2process;
-use super::TaskControlBlock;
+use super::{current_task, TaskControlBlock};
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use crate::fs::{File, Stdin, Stdout};
@@ -49,7 +49,10 @@ pub struct ProcessControlBlockInner {
     pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
     /// condvar list
     pub condvar_list: Vec<Option<Arc<Condvar>>>,
-}
+    /// deadlock_ckeck
+    pub deadlock_check: usize
+
+    }
 
 impl ProcessControlBlockInner {
     #[allow(unused)]
@@ -82,6 +85,91 @@ impl ProcessControlBlockInner {
     pub fn get_task(&self, tid: usize) -> Arc<TaskControlBlock> {
         self.tasks[tid].as_ref().unwrap().clone()
     }
+
+    fn banker(&self,available: Vec<i32>, allocation: Vec<Vec<i32>>, need: Vec<Vec<i32>>)->bool{
+        let n=allocation.len();
+        let m=available.len();
+        let mut work=available;
+        let mut finish =vec![false;n];
+        loop{
+            let mut allocated=false;
+            for i in 0..n {
+                if !finish[i] && (0..m).all(|j| need[i][j] <= work[j]) {
+                    for j in 0..m {
+                        work[j] += allocation[i][j];
+                    }
+                    finish[i] = true;
+                    allocated = true;
+                }
+            }
+            if !allocated {
+                break;
+            }
+        }
+        finish.iter().all(|&f| f)
+
+    }
+
+    
+    pub fn check_dead_mutex(&self,mutex_id: usize)->bool{
+       
+        let m=self.mutex_list.len();
+        let n= self.tasks.len();
+        if m<=0{return true};
+        let mut available:Vec<i32>= vec![0;m];
+        let mut allocation= vec![vec![0;m];n];
+        let mut need= vec![vec![0;m];n];
+
+        for i in 0..m{
+            if let Some(mtx_i)=&self.mutex_list[i]{
+                available[i]=mtx_i.count() as i32;
+                let j=mtx_i.allocated() ;
+                if j!=-1{
+                    allocation[j as usize][i]=1;
+
+                }
+                if let Some(need_mat) = mtx_i.need() {
+                    for j in 0..need_mat.len() {
+                        need[need_mat[j]][i] += 1;
+                    }
+                }
+            }
+        }
+        need[current_task().unwrap().get_tid()][mutex_id] += 1;
+        !self.banker(available,allocation,need)
+
+
+
+    }
+
+    pub fn check_dead_sem(&self,sem_id:usize)->bool{
+        let m=self.semaphore_list.len();//资源数
+        let n= self.tasks.len();//任务数
+        if m<=0{return true};
+        let mut available:Vec<i32>= vec![0;m];
+        let mut allocation= vec![vec![0;m];n];
+        let mut need= vec![vec![0;m];n];
+
+        for i in 0..m{
+            if let Some(sem_i)=&self.semaphore_list[i]{
+                available[i]=sem_i.count();
+                
+                for tid in sem_i.inner.exclusive_access().allocated_queue.iter(){
+                    allocation[*tid][i]+=1;
+                }
+
+                for task in sem_i.inner.exclusive_access().wait_queue.iter(){
+                    need[task.get_tid()][i]+=1;
+                }     
+            }
+        }
+        need[current_task().unwrap().get_tid()][sem_id] += 1;
+
+        !self.banker(available,allocation,need)
+
+    }
+
+   
 }
 
 impl ProcessControlBlock {
@@ -119,6 +207,7 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    deadlock_check:0
                 })
             },
         });
@@ -245,6 +334,7 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    deadlock_check:0
                 })
             },
         });
