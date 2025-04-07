@@ -71,7 +71,7 @@ impl Semaphore {
             drop(inner);
             block_current_and_run_next();
         }else{
-            let tid = current_task().unwrap().inner_exclusive_access().res.as_ref().unwrap().tid;
+            let tid = current_task().unwrap().get_tid();
             inner.allocated_queue.push(tid);
         }
     }
