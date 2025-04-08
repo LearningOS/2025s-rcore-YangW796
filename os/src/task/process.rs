@@ -142,7 +142,7 @@ impl ProcessControlBlockInner {
 
     }
 
-    pub fn check_dead_sem(&self,sem_id:usize)->bool{
+    pub fn check_dead_sem(&self,_sem_id:usize)->bool{
         let m=self.semaphore_list.len();//资源数
         let n= self.tasks.len();//任务数
         if m<=0{return true};
@@ -166,7 +166,7 @@ impl ProcessControlBlockInner {
                 
             }
         }
-        need[current_task().unwrap().get_tid()][sem_id] += 1;
+        need[current_task().unwrap().get_tid()][_sem_id] += 1;
         !self.banker(available,allocation,need)
 
     }

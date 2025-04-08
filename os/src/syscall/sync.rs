@@ -172,7 +172,6 @@ pub fn sys_semaphore_down(sem_id: usize) -> isize {
     drop(process_inner);
     drop(process);
     sem.down();
-    println!("There3");
     0
 }
 /// condvar create syscall
