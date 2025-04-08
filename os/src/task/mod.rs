@@ -66,6 +66,7 @@ pub fn block_current_and_run_next() {
     task_inner.task_status = TaskStatus::Blocked;
     drop(task_inner);
     schedule(task_cx_ptr);
+    println!("abcdedf");
 }
 
 use crate::board::QEMUExit;

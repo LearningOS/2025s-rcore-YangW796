@@ -170,7 +170,9 @@ pub fn sys_semaphore_down(sem_id: usize) -> isize {
     if process_inner.check_dead_sem(sem_id){return -0xDEAD;}
     let sem = Arc::clone(process_inner.semaphore_list[sem_id].as_ref().unwrap());
     drop(process_inner);
+    drop(process);
     sem.down();
+    println!("There3");
     0
 }
 /// condvar create syscall
@@ -253,5 +255,5 @@ pub fn sys_enable_deadlock_detect(enabled: usize) -> isize {
     trace!("kernel: sys_enable_deadlock_detect NOT IMPLEMENTED");
     if enabled != 0 && enabled!= 1{return -1;}
     current_process().inner_exclusive_access().deadlock_check= enabled;
-    return 0;
+    return enabled as isize;
 }

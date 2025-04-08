@@ -153,21 +153,20 @@ impl ProcessControlBlockInner {
         for i in 0..m{
             if let Some(sem_i)=&self.semaphore_list[i]{
                 available[i]=sem_i.count();
-                if let Some(allocation_mat) = sem_i.allocated() {
-                    for j in 0..allocation_mat.len() {
-                        allocation[allocation_mat[j]][i] += 1;
+                if let Some(allocated) = sem_i.allocated() {
+                    for j in 0..allocated.len() {
+                        allocation[allocated[j]][i] += 1;
                     }
                 }
-                if let Some(need_mat) = sem_i.need() {
-                    for j in 0..need_mat.len() {
-                        need[need_mat[j]][i] += 1;
+                if let Some(needed) = sem_i.need() {
+                    for j in 0..needed.len() {
+                        need[needed[j]][i] += 1;
                     }
                 }
                 
             }
         }
         need[current_task().unwrap().get_tid()][sem_id] += 1;
-
         !self.banker(available,allocation,need)
 
     }
